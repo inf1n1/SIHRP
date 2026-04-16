@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>S.I.H.R.P. — Reporte</title>
+  <link rel="icon" type="image/png" href="images/favicon.png"/>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <img src="images/logo_circle.png" class="nav-logo-img" alt="HRP Logo"/>
+    <div class="nav-brand-block">
+      <span class="nav-brand">S.I.H.R.P.</span>
+    </div>
+  </a>
+  <div class="search-wrap">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="9" cy="9" r="6"/><path d="M15 15l-3.5-3.5"/>
+    </svg>
+    <input id="searchInput" type="text" placeholder="Buscar..." oninput="renderTable()"/>
+  </div>
+  <div class="spacer"></div>
+  <div class="nav-menu" id="navMenu">
+    <div class="nav-item">
+      <button class="nav-link">Inventario
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="dropdown">
+        <a onclick="closeDrawer()" href="invt_cpu.html">CPU</a>
+        <a onclick="closeDrawer()" href="invt_moni.html">Monitor</a>
+        <a onclick="closeDrawer()" href="invt_impr.html">Impresora</a>
+        <a onclick="closeDrawer()" href="invt_serv.html">Servidor</a>
+        <a onclick="closeDrawer()" href="invt_rout.html">Router</a>
+        <a onclick="closeDrawer()" href="invt_acc.html">Access Point</a>
+        <a onclick="closeDrawer()" href="invt_swi.html">Switch</a>
+        <a onclick="closeDrawer()" href="invt_dvr.html">DVR</a>
+      </div>
+    </div>
+    <div class="nav-item">
+      <button class="nav-link active">Reportes
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="dropdown" id="reportesDropdown">
+        <span style="padding:10px 16px;font-size:12px;color:#94a3b8;display:block;">Cargando...</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-logout" onclick="doLogout()">Salir</button>
+
+  <button class="nav-hamburger" id="navHamburger" aria-label="Menu" onclick="toggleDrawer()">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 5h14M3 10h14M3 15h14"/>
+    </svg>
+  </button>
+</nav>
+
+<main>
+  <div class="page-title" id="pageTitle">Reporte</div>
+  <div id="status">Selecciona un mes desde el menu Reportes.</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Item</th>
+          <th>Marca</th>
+          <th>Modelo</th>
+          <th>Area o Unidad</th>
+          <th>N de Serie</th>
+          <th>Estado</th>
+          <th>Codigo Patrimonial</th>
+          <th>Anno</th>
+          <th>Procesador</th>
+          <th>Placa</th>
+          <th>Tipo RAM</th>
+          <th>Cap. RAM</th>
+          <th>Disco Duro</th>
+          <th>Cap. Disco</th>
+          <th>IP</th>
+          <th>Sistema Operativo</th>
+          <th>Tipo Monitor</th>
+          <th>Tamano</th>
+          <th>Puertos Monitor</th>
+          <th>Cable Poder</th>
+          <th>Tecnologia</th>
+          <th>Conectividad</th>
+          <th>Puertos Switch</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr id="emptyMsg"><td colspan="24">sin registros</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="print-wrap">
+    <button class="btn" onclick="window.print()">Imprimir</button>
+    <button class="btn" onclick="exportXLSX()">Exportar Excel</button>
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://vngfvmrnwzmigglwrshq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuZ2Z2bXJud3ptaWdnbHdyc2hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNDE0OTgsImV4cCI6MjA4NjgxNzQ5OH0.BwgvJxqHdiJB6N2DzmIm4wBDCyRnI9hsG0XdNQL0xI0';
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const NOMBRES_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                         'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  const TABLES = ['i_cpu','i_monitor','i_impresora','i_servidor','i_router','i_access','i_switch','i_dvr'];
+
+  const TABLE_LABELS = {
+    i_cpu:       'CPU',
+    i_monitor:   'Monitor',
+    i_impresora: 'Impresora',
+    i_servidor:  'Servidor',
+    i_router:    'Router',
+    i_access:    'Access Point',
+    i_switch:    'Switch',
+    i_dvr:       'DVR'
+  };
+
+  let items = [];
+  let mesParam = null;
+
+  db.auth.getSession().then(({ data }) => {
+    if (!data.session) window.location.href = 'login.html';
+  });
+
+  async function doLogout() {
+    await db.auth.signOut();
+    window.location.href = 'login.html';
+  }
+
+  function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function normalize(s) { return String(s??'').trim().toLowerCase().replace(/\s+/g,' '); }
+
+  function parseMesParam() {
+    const params = new URLSearchParams(window.location.search);
+    const mes = params.get('mes');
+    if (!mes || !/^\d{4}-\d{2}$/.test(mes)) return null;
+    return mes;
+  }
+
+  function getMonthRange(mesKey) {
+    const [y, m] = mesKey.split('-').map(Number);
+    const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const end   = new Date(y, m, 0, 23, 59, 59, 999);
+    return { startISO: start.toISOString(), endISO: end.toISOString() };
+  }
+
+  async function loadItems() {
+    mesParam = parseMesParam();
+    if (!mesParam) return;
+
+    const [y, m] = mesParam.split('-').map(Number);
+    const title = 'Inventario General — ' + NOMBRES_MESES[m-1] + ' ' + y;
+    document.getElementById('pageTitle').textContent = title;
+    document.title = 'S.I.H.R.P. — ' + title;
+
+    const { startISO, endISO } = getMonthRange(mesParam);
+
+    const results = await Promise.all(
+      TABLES.map(async (name) => {
+        try {
+          const { data, error } = await db.from(name).select('*').gte('fyh', startISO).lte('fyh', endISO);
+          if (error || !data) return [];
+          return data.map(r => ({ ...r, _table: name }));
+        } catch(_) { return []; }
+      })
+    );
+
+    items = results.flat();
+    renderTable();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tbody');
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+
+    const filtered = q
+      ? items.filter(r => Object.values(r).some(v => String(v??'').toLowerCase().includes(q)))
+      : items;
+
+    const sorted = [...filtered].sort((a, b) => {
+      const ta = TABLE_LABELS[a._table] || '', tb = TABLE_LABELS[b._table] || '';
+      if (ta < tb) return -1; if (ta > tb) return 1;
+      const ga = String(a.guion ?? ''), gb = String(b.guion ?? '');
+      return ga.localeCompare(gb, undefined, { numeric: true });
+    });
+
+    tbody.innerHTML = '';
+    if (!sorted.length) {
+      tbody.innerHTML = '<tr id="emptyMsg"><td colspan="24">— sin registros —</td></tr>';
+    } else {
+      sorted.forEach((row, i) => {
+        const cp = row.codigo
+          ? (row.guion ? esc(row.codigo) + '&ndash;' + esc(row.guion) : esc(row.codigo))
+          : '';
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="item-num">' + (i+1) + '</td>' +
+          '<td>' + esc(TABLE_LABELS[row._table] || '') + '</td>' +
+          '<td>' + esc(row.marca)   + '</td>' +
+          '<td>' + esc(row.modelo)  + '</td>' +
+          '<td>' + esc(row.area)    + '</td>' +
+          '<td>' + esc(row.serie)   + '</td>' +
+          '<td>' + esc(row.estado)  + '</td>' +
+          '<td>' + cp               + '</td>' +
+          '<td>' + esc(row.year)    + '</td>' +
+          '<td>' + esc(row.proces)  + '</td>' +
+          '<td>' + esc(row.placa)   + '</td>' +
+          '<td>' + esc(row.ram)     + '</td>' +
+          '<td>' + esc(row.ramcap)  + '</td>' +
+          '<td>' + esc(row.disco)   + '</td>' +
+          '<td>' + esc(row.discap)  + '</td>' +
+          '<td>' + esc(row.ip)      + '</td>' +
+          '<td>' + esc(row.sistema) + '</td>' +
+          '<td>' + esc(row.tipo)    + '</td>' +
+          '<td>' + esc(row.size)    + '</td>' +
+          '<td>' + esc(row.port)    + '</td>' +
+          '<td>' + esc(row.cable)   + '</td>' +
+          '<td>' + esc(row.tech)    + '</td>' +
+          '<td>' + esc(row.conec)   + '</td>' +
+          '<td>' + esc(row.ports)   + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('status').textContent =
+      sorted.length + ' registro' + (sorted.length !== 1 ? 's' : '') +
+      (q ? ' · filtrado por "' + q + '"' : '');
+  }
+
+  async function buildReportesDropdown() {
+    const dd = document.getElementById('reportesDropdown');
+    const set = new Set();
+
+    await Promise.all(TABLES.map(async (name) => {
+      try {
+        const { data } = await db.from(name).select('fyh').not('fyh','is',null);
+        (data||[]).forEach(r => {
+          const d = new Date(r.fyh);
+          if (!isNaN(d)) set.add(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+        });
+      } catch(_) {}
+    }));
+
+    if (!set.size) {
+      dd.innerHTML = '<span style="padding:10px 16px;font-size:12px;color:#94a3b8;display:block;">Sin reportes aun</span>';
+      return;
+    }
+
+    dd.innerHTML = [...set].sort().map(k => {
+      const [y, m] = k.split('-');
+      const isActive = k === mesParam;
+      const style = isActive ? ' style="background:var(--accent-light);color:var(--accent-dark);font-weight:700"' : '';
+      return '<a href="reporte.html?mes=' + k + '"' + style + '>' + NOMBRES_MESES[parseInt(m)-1] + ' ' + y + '</a>';
+    }).join('');
+  }
+
+  buildReportesDropdown();
+  loadItems();
+
+
+  // ── DROPDOWN CLICK TOGGLE ─────────────────────────────────
+  document.querySelectorAll('.nav-link').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      const item = this.closest('.nav-item');
+      if (!item) return;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+
+  // ── MOBILE DRAWER ─────────────────────────────────────
+  function toggleDrawer() { document.getElementById('navMenu').classList.toggle('open'); }
+  function closeDrawer()  { document.getElementById('navMenu').classList.remove('open'); }
+
+  // Single outside-click handler: closes dropdowns and drawer
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-item')) {
+      document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+    }
+    const drawer = document.getElementById('navMenu');
+    const btn = document.getElementById('navHamburger');
+    if (drawer && btn && !drawer.contains(e.target) && !btn.contains(e.target)) {
+      drawer.classList.remove('open');
+    }
+  });
+
+  function exportXLSX() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const filtered = q
+      ? items.filter(r => Object.values(r).some(v => String(v??'').toLowerCase().includes(q)))
+      : items;
+    const sorted = [...filtered].sort((a,b) => {
+      const ta = TABLE_LABELS[a._table] || '', tb = TABLE_LABELS[b._table] || '';
+      if (ta < tb) return -1; if (ta > tb) return 1;
+      const ga = String(a.guion ?? ''), gb = String(b.guion ?? '');
+      return ga.localeCompare(gb, undefined, { numeric: true });
+    });
+    const headers = ['#','Ítem','Marca','Modelo','Área o Unidad','N° de Serie','Estado',
+      'Código Patrimonial','Año','Procesador','Placa','Tipo RAM','Cap. RAM','Disco Duro',
+      'Cap. Disco','IP','Sistema Operativo','Tipo Monitor','Tamaño','Puertos Monitor',
+      'Cable Poder','Tecnología','Conectividad','Puertos Switch'];
+    const rows = sorted.map((r,i) => {
+      const cp = r.codigo ? (r.guion ? r.codigo+'-'+r.guion : r.codigo) : '';
+      return [i+1, TABLE_LABELS[r._table] || '', r.marca??'', r.modelo??'', r.area??'', r.serie??'',
+        r.estado??'', cp, r.year??'', r.proces??'', r.placa??'', r.ram??'',
+        r.ramcap??'', r.disco??'', r.discap??'', r.ip??'', r.sistema??'',
+        r.tipo??'', r.size??'', r.port??'', r.cable??'', r.tech??'', r.conec??'', r.ports??''];
+    });
+    const title = document.getElementById('pageTitle').textContent || 'Reporte';
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+    XLSX.writeFile(wb, title + '.xlsx');
+  }
+
+</script>
+</body>
+</html>

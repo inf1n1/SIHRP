@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>S.I.H.R.P. — Inicio</title>
+  <link rel="icon" type="image/png" href="images/favicon.png"/>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="inicio-page">
+
+<!-- NAV: logo left | menu center (flex, not absolute) | salir right -->
+<nav>
+  <a href="index.html" class="nav-logo">
+    <img src="images/logo_circle.png" class="nav-logo-img" alt="HRP Logo"/>
+    <div class="nav-brand-block">
+      <span class="nav-brand">S.I.H.R.P.</span>
+    </div>
+  </a>
+
+  <div class="spacer"></div>
+
+  <div class="nav-menu" id="navMenu">
+    <div class="nav-item">
+      <button class="nav-link">
+        Inventario
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="dropdown">
+        <a onclick="closeDrawer()" href="invt_cpu.html">CPU</a>
+        <a onclick="closeDrawer()" href="invt_moni.html">Monitor</a>
+        <a onclick="closeDrawer()" href="invt_impr.html">Impresora</a>
+        <a onclick="closeDrawer()" href="invt_serv.html">Servidor</a>
+        <a onclick="closeDrawer()" href="invt_rout.html">Router</a>
+        <a onclick="closeDrawer()" href="invt_acc.html">Access Point</a>
+        <a onclick="closeDrawer()" href="invt_swi.html">Switch</a>
+        <a onclick="closeDrawer()" href="invt_dvr.html">DVR</a>
+      </div>
+    </div>
+    <div class="nav-item">
+      <button class="nav-link">
+        Reportes
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="dropdown" id="reportesDropdown">
+        <span style="padding:10px 16px;font-size:12px;color:#94a3b8;display:block;">Cargando…</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <button class="btn-logout" onclick="doLogout()">Salir</button>
+
+  <!-- Mobile hamburger -->
+  <button class="nav-hamburger" id="navHamburger" aria-label="Menu" onclick="toggleDrawer()">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 5h14M3 10h14M3 15h14"/>
+    </svg>
+  </button>
+</nav>
+
+<!-- HERO: full remaining browser height, centered text -->
+<div class="inicio-hero">
+  <div class="inicio-hero-content">
+    <h1>Sistema de Inventario del Hospital Regional de Pucallpa</h1>
+    <div class="inicio-hero-divider"></div>
+    <p>
+      Plataforma oficial de gestión de inventario tecnológico del Hospital Regional de Pucallpa.
+      Permite registrar, consultar y administrar todos los equipos informáticos asignados a las
+      distintas áreas y unidades del hospital, manteniendo un historial actualizado y accesible
+      para el personal autorizado.
+    </p>
+    <p>
+      Cada equipo queda identificado con su código patrimonial, número de serie, marca, modelo,
+      área asignada y estado. Los reportes mensuales se generan automáticamente a partir de los
+      registros guardados en el sistema.
+    </p>
+    <p class="inicio-managed">
+      Manejado por el Área de Estadística e Informática — Hospital Regional de Pucallpa
+    </p>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://vngfvmrnwzmigglwrshq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuZ2Z2bXJud3ptaWdnbHdyc2hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNDE0OTgsImV4cCI6MjA4NjgxNzQ5OH0.BwgvJxqHdiJB6N2DzmIm4wBDCyRnI9hsG0XdNQL0xI0';
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  db.auth.getSession().then(({ data }) => {
+    if (!data.session) window.location.href = 'login.html';
+  });
+
+  async function doLogout() {
+    await db.auth.signOut();
+    window.location.href = 'login.html';
+  }
+
+  async function buildReportesDropdown() {
+    const dd = document.getElementById('reportesDropdown');
+    const set = new Set();
+    const now = new Date(Date.now() - 5*60*60*1000);
+    const curMes = now.getUTCFullYear() + '-' + String(now.getUTCMonth()+1).padStart(2,'0');
+    try {
+      const { data } = await db.from('snapshots_mensual').select('snap_mes');
+      (data||[]).forEach(r => { if (r.snap_mes) set.add(r.snap_mes); });
+    } catch(_) {}
+    set.add(curMes);
+    const nombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    dd.innerHTML = [...set].sort().reverse().map(k => {
+      const [y,m] = k.split('-');
+      const isCur = k === curMes;
+      const badge = isCur ? ' <span style="font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:3px;vertical-align:middle;">HOY</span>' : '';
+      return '<a href="reporte.html?mes=' + k + '">' + nombres[parseInt(m)-1] + ' ' + y + badge + '</a>';
+    }).join('');
+  }
+
+  buildReportesDropdown();
+
+  // ── DROPDOWN CLICK TOGGLE ─────────────────────────────────
+  document.querySelectorAll('.nav-link').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      const item = this.closest('.nav-item');
+      if (!item) return;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+
+  // ── MOBILE DRAWER ─────────────────────────────────────
+  function toggleDrawer() { document.getElementById('navMenu').classList.toggle('open'); }
+  function closeDrawer()  { document.getElementById('navMenu').classList.remove('open'); }
+
+  // Single outside-click handler: closes dropdowns and drawer
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-item')) {
+      document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+    }
+    const drawer = document.getElementById('navMenu');
+    const btn = document.getElementById('navHamburger');
+    if (drawer && btn && !drawer.contains(e.target) && !btn.contains(e.target)) {
+      drawer.classList.remove('open');
+    }
+  });
+
+</script>
+</body>
+</html>
