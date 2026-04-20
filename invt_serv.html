@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>S.I.H.R.P. — Inventario de Servidores</title>
+  <link rel="icon" type="image/png" href="images/favicon.png"/>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <img src="images/logo_circle.png" class="nav-logo-img" alt="HRP Logo"/>
+    <div class="nav-brand-block">
+      <span class="nav-brand">S.I.H.R.P.</span>
+    </div>
+  </a>
+  <div class="search-wrap">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="9" cy="9" r="6"/><path d="M15 15l-3.5-3.5"/>
+    </svg>
+    <input id="searchInput" type="text" placeholder="Buscar…" oninput="renderTable()"/>
+  </div>
+  <div class="spacer"></div>
+  <div class="nav-menu" id="navMenu">
+    <div class="nav-item">
+      <button class="nav-link active">Inventario
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="dropdown">
+        <a onclick="closeDrawer()" href="invt_cpu.html">CPU</a>
+        <a onclick="closeDrawer()" href="invt_moni.html">Monitor</a>
+        <a onclick="closeDrawer()" href="invt_impr.html">Impresora</a>
+        <a onclick="closeDrawer()" href="invt_serv.html">Servidor</a>
+        <a onclick="closeDrawer()" href="invt_rout.html">Router</a>
+        <a onclick="closeDrawer()" href="invt_acc.html">Access Point</a>
+        <a onclick="closeDrawer()" href="invt_swi.html">Switch</a>
+        <a onclick="closeDrawer()" href="invt_dvr.html">DVR</a>
+      </div>
+    </div>
+    <div class="nav-item">
+      <button class="nav-link">Reportes
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="dropdown" id="reportesDropdown">
+        <span style="padding:10px 16px;font-size:12px;color:#94a3b8;display:block;">Cargando…</span>
+      </div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <button class="btn" onclick="openAdd()">+ Agregar</button>
+    <button class="btn" id="btnModificar" disabled onclick="openEdit()"><span class="btn-label">Modificar</span></button>
+    <button class="btn btn-danger" id="btnEliminar" disabled onclick="openDelete()"><span class="btn-label">Eliminar</span></button>
+  </div>
+  <button class="nav-hamburger" id="navHamburger" aria-label="Menu" onclick="toggleDrawer()">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 5h14M3 10h14M3 15h14"/>
+    </svg>
+  </button>
+</nav>
+
+<main>
+  <div class="page-title">Inventario de Servidores</div>
+  <div id="status">0 registros</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Marca</th>
+          <th>Modelo</th>
+          <th>Área o Unidad</th>
+          <th>N° de Serie</th>
+          <th>Estado</th>
+          <th>Código Patrimonial</th>
+          <th>Año</th>
+          <th>Procesador</th>
+          <th>Placa</th>
+          <th>Tipo RAM</th>
+          <th>Cap. RAM</th>
+          <th>Disco Duro</th>
+          <th>Cap. Disco</th>
+          <th>IP</th>
+          <th>Sistema Operativo</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr id="emptyMsg"><td colspan="16">— sin registros —</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="print-wrap">
+    <button class="btn" onclick="window.print()">Imprimir</button>
+    <button class="btn" onclick="exportXLSX()">Exportar Excel</button>
+  </div>
+</main>
+
+<!-- MODAL: ADD / EDIT -->
+<div class="overlay" id="formOverlay">
+  <div class="modal">
+    <div class="modal-title" id="formTitle">Nuevo Registro — Servidor</div>
+    <div class="form-grid" id="formGrid">
+
+      <div class="field"><label>Marca</label>
+        <input id="fMarca" type="text" list="dl_marca" autocomplete="new-password"/>
+        <datalist id="dl_marca"></datalist>
+      </div>
+      <div class="field"><label>Modelo</label>
+        <input id="fModelo" type="text" list="dl_modelo" autocomplete="new-password"/>
+        <datalist id="dl_modelo"></datalist>
+      </div>
+      <div class="field"><label>Estado</label>
+        <input id="fEstado" type="text" list="dl_estado" autocomplete="new-password"/>
+        <datalist id="dl_estado"></datalist>
+      </div>
+
+      <div class="field full"><label>Área o Unidad</label>
+        <input id="fArea" type="text" list="dl_area" autocomplete="new-password"/>
+        <datalist id="dl_area"></datalist>
+      </div>
+
+      <div class="field"><label>Número de Serie</label>
+        <input id="fSerie" type="text" autocomplete="off"/>
+      </div>
+      <div class="field"><label>Código Patrimonial</label>
+        <div class="codigo-wrap">
+          <input id="fCodigo" type="text" list="dl_codigo" autocomplete="new-password" placeholder="Código"/>
+          <datalist id="dl_codigo"></datalist>
+          <span class="codigo-sep">–</span>
+          <input id="fGuion" type="text" autocomplete="off" placeholder="Guión"/>
+        </div>
+      </div>
+
+      <div class="field"><label>Año Registrado</label>
+        <input id="fYear" type="text" list="dl_year" autocomplete="new-password"/>
+        <datalist id="dl_year"></datalist>
+      </div>
+      <div class="field"><label>Procesador</label>
+        <input id="fProces" type="text" list="dl_proces" autocomplete="new-password"/>
+        <datalist id="dl_proces"></datalist>
+      </div>
+      <div class="field"><label>Placa</label>
+        <input id="fPlaca" type="text" list="dl_placa" autocomplete="new-password"/>
+        <datalist id="dl_placa"></datalist>
+      </div>
+      <div class="field"><label>Tipo de RAM</label>
+        <input id="fRam" type="text" list="dl_ram" autocomplete="new-password"/>
+        <datalist id="dl_ram"></datalist>
+      </div>
+      <div class="field"><label>Capacidad RAM</label>
+        <input id="fRamcap" type="text" list="dl_ramcap" autocomplete="new-password"/>
+        <datalist id="dl_ramcap"></datalist>
+      </div>
+
+      <div class="field full">
+        <label>Discos Duros</label>
+        <div class="dynamic-group" id="discoGroup"></div>
+        <button class="btn-add-dyn" type="button" onclick="addDisco()">+ Agregar Disco</button>
+        <datalist id="dl_disco"></datalist>
+        <datalist id="dl_discap"></datalist>
+      </div>
+
+      <div class="field"><label>IP</label>
+        <input id="fIp" type="text" autocomplete="off"/>
+      </div>
+      <div class="field"><label>Sistema Operativo</label>
+        <input id="fSistema" type="text" list="dl_sistema" autocomplete="new-password"/>
+        <datalist id="dl_sistema"></datalist>
+      </div>
+
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('formOverlay')">Cancelar</button>
+      <button class="btn btn-primary" id="formSubmitBtn" onclick="submitForm()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DELETE -->
+<div class="overlay" id="deleteOverlay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title">Eliminar Registro</div>
+    <p class="confirm-msg">¿Estás seguro de que deseas eliminar este registro?</p>
+    <p class="confirm-detail" id="deleteDetail"></p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('deleteOverlay')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CUSTOM AUTOCOMPLETE ───────────────────────────────
+// Replaces native <datalist> UI with a styled popup.
+// Reads <option> values from the existing datalist the input points to.
+// Popup stays open until: an item is selected, user clicks outside both
+// input and popup, or Escape/Tab is pressed.
+(function(){
+  let popup, currentInput, items = [], activeIdx = -1;
+
+  function ensurePopup() {
+    if (popup) return popup;
+    popup = document.createElement('div');
+    popup.className = 'ac-popup';
+    document.body.appendChild(popup);
+    return popup;
+  }
+
+  function optionsFor(input) {
+    const id = input.dataset.acList;
+    const dl = id && document.getElementById(id);
+    if (!dl) return [];
+    return [...dl.querySelectorAll('option')].map(o => o.value).filter(Boolean);
+  }
+
+  function render(filterText) {
+    const all = optionsFor(currentInput);
+    const q = (filterText || '').toLowerCase();
+    items = q
+      ? all.filter(v => v.toLowerCase().includes(q))
+      : all.slice();
+    if (!items.length) { close(); return; }
+    activeIdx = -1;
+    popup.innerHTML = items.map((v,i) =>
+      `<div class="ac-item" data-i="${i}">${escapeHtml(v)}</div>`
+    ).join('');
+    position();
+    popup.classList.add('open');
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function position() {
+    const r = currentInput.getBoundingClientRect();
+    const MAX_H = 220;
+    const GAP = 2;
+    const spaceBelow = window.innerHeight - r.bottom - GAP;
+    const h = Math.max(80, Math.min(MAX_H, spaceBelow));
+    popup.style.maxHeight = h + 'px';
+    popup.style.left  = (window.scrollX + r.left) + 'px';
+    popup.style.top   = (window.scrollY + r.bottom + GAP) + 'px';
+    popup.style.width = r.width + 'px';
+  }
+
+  function close() {
+    if (popup) popup.classList.remove('open');
+    currentInput = null;
+    items = [];
+    activeIdx = -1;
+  }
+
+  function select(idx) {
+    if (idx < 0 || idx >= items.length || !currentInput) return;
+    const input = currentInput;
+    input.value = items[idx];
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    close();
+  }
+
+  function setActive(idx) {
+    activeIdx = idx;
+    [...popup.children].forEach((el,i) =>
+      el.classList.toggle('active', i === idx));
+    const el = popup.children[idx];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function onFocus(e) {
+    currentInput = e.target;
+    ensurePopup();
+    render('');
+  }
+
+  function onInput(e) {
+    currentInput = e.target;
+    ensurePopup();
+    render(e.target.value);
+  }
+
+  function onKeydown(e) {
+    if (!popup || !popup.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIdx + 1, items.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(activeIdx - 1, 0)); }
+    else if (e.key === 'Enter') {
+      if (activeIdx >= 0) { e.preventDefault(); select(activeIdx); }
+      else close();
+    }
+    else if (e.key === 'Escape') { close(); }
+    else if (e.key === 'Tab') { close(); }
+  }
+
+  // Pointer events on popup items — use pointerdown so we act before blur
+  document.addEventListener('pointerdown', e => {
+    const item = e.target.closest && e.target.closest('.ac-item');
+    if (item && popup && popup.contains(item)) {
+      e.preventDefault();          // prevent the input from losing focus
+      select(parseInt(item.dataset.i, 10));
+      return;
+    }
+    // Click outside input + popup → close
+    if (currentInput && e.target !== currentInput &&
+        popup && !popup.contains(e.target)) close();
+  });
+
+  window.addEventListener('resize', () => { if (popup && popup.classList.contains('open')) position(); });
+  window.addEventListener('scroll', () => { if (popup && popup.classList.contains('open')) position(); }, true);
+
+  window.initAutocomplete = function(root) {
+    (root || document).querySelectorAll('input[list]').forEach(input => {
+      if (input.dataset.acReady) return;
+      input.dataset.acReady = '1';
+      input.dataset.acList  = input.getAttribute('list');
+      input.removeAttribute('list');         // disable native popup
+      input.setAttribute('autocomplete','off');
+      input.addEventListener('focus', onFocus);
+      input.addEventListener('input', onInput);
+      input.addEventListener('keydown', onKeydown);
+    });
+  };
+
+  document.addEventListener('DOMContentLoaded', () => window.initAutocomplete());
+})();
+
+  const SUPABASE_URL = 'https://vngfvmrnwzmigglwrshq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuZ2Z2bXJud3ptaWdnbHdyc2hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNDE0OTgsImV4cCI6MjA4NjgxNzQ5OH0.BwgvJxqHdiJB6N2DzmIm4wBDCyRnI9hsG0XdNQL0xI0';
+  const TABLE = 'i_servidor';
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let items = [], selectedId = null, mode = 'add';
+
+  db.auth.getSession().then(({ data }) => {
+    if (!data.session) window.location.href = 'login.html';
+  });
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function errMsg(e) { return e?.message || e?.details || e?.hint || JSON.stringify(e); }
+  function normalize(s) { return String(s ?? '').trim().toLowerCase().replace(/\s+/,' '); }
+
+  // Hardcoded preset values per column (merged with DB values in datalists)
+  const PRESETS = {
+    area:    ['Admisión','Almacén Farmacia','Anatomía Patológica','Archivo Contingencia','Coordinación General de Servicios Presupuestales','Diabetes','Estadística e Informática','Estrategias Sanitarias de Enfermedades Metaxémicas','Farmacia','Ginecología','Jefatura de Consultorio Externo','Oftalmología','Presupuesto','Psicosomático'],
+    marca:   ['BAStech','Dell EMC'],
+    codigo:  ['74089200'],
+    estado:  ['Operativo','Inoperativo','Semi-Operativo'],
+    disco:   ['HDD','SSD','SSD NVMe','SSD SATA'],
+    discap:  ['128 GB','256 GB','500 GB','512 GB','1 TB','2 TB','4 TB'],
+    ram:     ['DDR3','DDR4','DDR5'],
+    ramcap:  ['4 GB','8 GB','16 GB'],
+    proces:  ['Intel Core i3','Intel Core i5','Intel Core i7','Intel Core i9','Intel Xeon',
+              'AMD Ryzen 5','AMD Ryzen 7','AMD Ryzen 9','AMD EPYC'],
+    sistema: ['Windows 10','Windows 11','Windows Server 2019','Windows Server 2022','Linux']
+  };
+
+  // Columns whose DB value is a comma-joined list of items
+  const MULTI_COLS = ['disco','discap'];
+
+  // Pull whatever is currently typed in the open form's dynamic rows
+  function inFormValues(col) {
+    const map = { disco: '.f-disco', discap: '.f-discap' };
+    const sel = map[col];
+    if (!sel) return [];
+    return [...document.querySelectorAll(sel)].map(i => i.value);
+  }
+
+  async function loadItems() {
+    const { data, error } = await db.from(TABLE).select('*');
+    if (error) { alert('Error al cargar: ' + errMsg(error)); return; }
+    items = data || [];
+    fillDataLists();
+    renderTable();
+  }
+
+  function fillDataLists() {
+    const fields = ['item','marca','modelo','area','serie','codigo','year',
+                    'proces','placa','ram','ramcap','disco','discap','ip','sistema','estado'];
+    fields.forEach(col => {
+      const dl = document.getElementById('dl_' + col);
+      if (!dl) return;
+      const seen = new Set();
+      const opts = [];
+      const push = v => {
+        const s = String(v ?? '').trim().replace(/\s+/g,' ');
+        const n = normalize(s);
+        if (s && !seen.has(n)) { seen.add(n); opts.push(s); }
+      };
+      (PRESETS[col] || []).forEach(push);
+      inFormValues(col).forEach(push);
+      if (MULTI_COLS.includes(col)) {
+        items.forEach(r => String(r[col] ?? '').split(',').forEach(push));
+      } else {
+        items.forEach(r => push(r[col]));
+      }
+      dl.innerHTML = opts.map(o => `<option value="${esc(o)}">`).join('');
+    });
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tbody');
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const filtered = q ? items.filter(r =>
+      Object.values(r).some(v => String(v ?? '').toLowerCase().includes(q))
+    ) : items;
+    const sorted = [...filtered].sort((a,b) => {
+      const aa = normalize(a.area), bb = normalize(b.area);
+      if (aa < bb) return -1; if (aa > bb) return 1;
+      return normalize(a.item) < normalize(b.item) ? -1 : 1;
+    });
+    tbody.innerHTML = '';
+    if (sorted.length === 0) {
+      tbody.innerHTML = `<tr id="emptyMsg"><td colspan="16">— sin registros —</td></tr>`;
+    } else {
+      sorted.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        if (row.id === selectedId) tr.classList.add('selected');
+        const cp = row.codigo ? (row.guion ? `${esc(row.codigo)}–${esc(row.guion)}` : esc(row.codigo)) : '';
+        tr.innerHTML = `
+          <td class="item-num">${i+1}</td>
+          <td>${esc(row.marca)}</td>
+          <td>${esc(row.modelo)}</td>
+          <td>${esc(row.area)}</td>
+          <td>${esc(row.serie)}</td>
+          <td>${esc(row.estado)}</td>
+          <td>${cp}</td>
+          <td>${esc(row.year)}</td>
+          <td>${esc(row.proces)}</td>
+          <td>${esc(row.placa)}</td>
+          <td>${esc(row.ram)}</td>
+          <td>${esc(row.ramcap)}</td>
+          <td>${esc(row.disco)}</td>
+          <td>${esc(row.discap)}</td>
+          <td>${esc(row.ip)}</td>
+          <td>${esc(row.sistema)}</td>
+        `;
+        tr.addEventListener('click', () => selectRow(row.id));
+        tbody.appendChild(tr);
+      });
+    }
+    document.getElementById('status').textContent =
+      `${sorted.length} registro${sorted.length !== 1 ? 's' : ''}${q ? ` · filtrado por "${q}"` : ''}`;
+  }
+
+  function selectRow(id) {
+    selectedId = selectedId === id ? null : id;
+    document.getElementById('btnModificar').disabled = !selectedId;
+    document.getElementById('btnEliminar').disabled  = !selectedId;
+    renderTable();
+  }
+
+  function addDisco(disco='', discap='') {
+    const group = document.getElementById('discoGroup');
+    const idx = group.children.length;
+    const row = document.createElement('div');
+    row.className = 'dynamic-row';
+    row.innerHTML = `
+      <div class="field">
+        <input type="text" class="f-disco" list="dl_disco" autocomplete="new-password" placeholder="Tipo de disco" value="${esc(disco)}"/>
+      </div>
+      <div class="field">
+        <input type="text" class="f-discap" list="dl_discap" autocomplete="new-password" placeholder="Capacidad" value="${esc(discap)}"/>
+      </div>
+      ${idx > 0 ? `<button class="btn-remove-dyn" type="button" onclick="this.parentElement.remove()" title="Quitar">×</button>` : ''}
+    `;
+    group.appendChild(row);
+    if (window.initAutocomplete) initAutocomplete(row);
+    if (document.getElementById('dl_disco')) fillDataLists();
+  }
+
+  function clearDiscos() {
+    document.getElementById('discoGroup').innerHTML = '';
+    addDisco();
+  }
+
+  function getDiscos() {
+    const discos  = [...document.querySelectorAll('.f-disco')].map(i => i.value.trim()).filter(Boolean);
+    const discaps = [...document.querySelectorAll('.f-discap')].map(i => i.value.trim()).filter(Boolean);
+    return { disco: discos.join(', '), discap: discaps.join(', ') };
+  }
+
+  function openAdd() {
+    mode = 'add';
+    document.getElementById('formTitle').textContent = 'Nuevo Registro — Servidor';
+    document.getElementById('formSubmitBtn').textContent = 'Guardar';
+    clearForm();
+    fillDataLists();
+    openModal('formOverlay');
+  }
+
+  function openEdit() {
+    const row = items.find(r => r.id === selectedId);
+    if (!row) return;
+    mode = 'edit';
+    fillDataLists();
+    document.getElementById('formTitle').textContent = `Modificar Registro — #${row.item}`;
+    document.getElementById('formSubmitBtn').textContent = 'Actualizar';
+    document.getElementById('fMarca').value   = row.marca   ?? '';
+    document.getElementById('fModelo').value  = row.modelo  ?? '';
+    document.getElementById('fArea').value    = row.area    ?? '';
+    document.getElementById('fSerie').value   = row.serie   ?? '';
+    document.getElementById('fEstado').value  = row.estado  ?? '';
+    document.getElementById('fCodigo').value  = row.codigo  ?? '';
+    document.getElementById('fGuion').value   = row.guion   ?? '';
+    document.getElementById('fYear').value    = row.year    ?? '';
+    document.getElementById('fProces').value  = row.proces  ?? '';
+    document.getElementById('fPlaca').value   = row.placa   ?? '';
+    document.getElementById('fRam').value     = row.ram     ?? '';
+    document.getElementById('fRamcap').value  = row.ramcap  ?? '';
+    document.getElementById('fIp').value      = row.ip      ?? '';
+    document.getElementById('fSistema').value = row.sistema ?? '';
+    clearDiscos();
+    document.getElementById('discoGroup').innerHTML = '';
+    const discos  = String(row.disco  ?? '').split(',').map(s => s.trim());
+    const discaps = String(row.discap ?? '').split(',').map(s => s.trim());
+    const n = Math.max(discos.length, discaps.length, 1);
+    for (let k = 0; k < n; k++) addDisco(discos[k] || '', discaps[k] || '');
+    openModal('formOverlay');
+  }
+
+  function openDelete() {
+    const row = items.find(r => r.id === selectedId);
+    if (!row) return;
+    document.getElementById('deleteDetail').textContent =
+      `${row.item ?? ''} · ${row.marca ?? ''} · ${row.modelo ?? ''}`;
+    openModal('deleteOverlay');
+  }
+
+  function openModal(id)  { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function clearForm() {
+    ['fMarca','fModelo','fArea','fSerie','fEstado','fCodigo','fGuion',
+     'fYear','fProces','fPlaca','fRam','fRamcap','fIp','fSistema'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    clearDiscos();
+  }
+
+  async function submitForm() {
+    const { disco, discap } = getDiscos();
+    const payload = {
+      marca:   document.getElementById('fMarca').value.trim(),
+      modelo:  document.getElementById('fModelo').value.trim(),
+      area:    document.getElementById('fArea').value.trim(),
+      serie:   document.getElementById('fSerie').value.trim(),
+      estado:  document.getElementById('fEstado').value.trim(),
+      codigo:  document.getElementById('fCodigo').value.trim(),
+      guion:   document.getElementById('fGuion').value.trim(),
+      year:    document.getElementById('fYear').value.trim(),
+      proces:  document.getElementById('fProces').value.trim(),
+      placa:   document.getElementById('fPlaca').value.trim(),
+      ram:     document.getElementById('fRam').value.trim(),
+      ramcap:  document.getElementById('fRamcap').value.trim(),
+      disco, discap,
+      ip:      document.getElementById('fIp').value.trim(),
+      sistema: document.getElementById('fSistema').value.trim()
+    };
+
+    const btn = document.getElementById('formSubmitBtn');
+    btn.disabled = true;
+
+    if (mode === 'add') {
+      const maxItem = items.reduce((m, r) => Math.max(m, parseInt(r.item) || 0), 0);
+      payload.item = maxItem + 1;
+      payload.fyh = new Date(Date.now() - 5*60*60*1000).toISOString().replace('Z','-05:00');
+      const { data: _ins, error } = await db.from(TABLE).insert([payload]).select();
+      if (error) { alert('Error al guardar: ' + errMsg(error)); btn.disabled = false; return; }
+      await __uiSync('C', TABLE, null, _ins?.[0] ?? payload);
+      await db.from('i_all').insert([{
+        marca: payload.marca, modelo: payload.modelo, area: payload.area,
+        serie: payload.serie, estado: payload.estado, codigo: payload.codigo,
+        guion: payload.guion, year: payload.year, fyh: payload.fyh
+      }]);
+    } else {
+      const _rb_u = items.find(r => r.id === selectedId);
+      payload.fyh = new Date(Date.now() - 5*60*60*1000).toISOString().replace('Z','-05:00');
+      const { error } = await db.from(TABLE).update(payload).eq('id', selectedId);
+      if (error) { alert('Error al actualizar: ' + errMsg(error)); btn.disabled = false; return; }
+      await __uiSync('M', TABLE, _rb_u ?? null, { id: selectedId, ...payload });
+      await db.from('i_all').update({
+        marca: payload.marca, modelo: payload.modelo, area: payload.area,
+        serie: payload.serie, estado: payload.estado, codigo: payload.codigo,
+        guion: payload.guion, year: payload.year
+      }).eq('serie', payload.serie);
+    }
+
+    btn.disabled = false;
+    closeModal('formOverlay');
+    selectedId = null;
+    document.getElementById('btnModificar').disabled = true;
+    document.getElementById('btnEliminar').disabled  = true;
+    await loadItems();
+  }
+
+  async function confirmDelete() {
+    const row = items.find(r => r.id === selectedId);
+    const { error } = await db.from(TABLE).delete().eq('id', selectedId);
+    if (error) { alert('Error al eliminar: ' + errMsg(error)); return; }
+    await __uiSync('X', TABLE, row ?? null, null);
+    if (row?.serie) await db.from('i_all').delete().eq('serie', row.serie);
+    selectedId = null;
+    document.getElementById('btnModificar').disabled = true;
+    document.getElementById('btnEliminar').disabled  = true;
+    closeModal('deleteOverlay');
+    await loadItems();
+  }
+
+  async function __uiSync(op, src, rb, ra) {
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      let _ip = null;
+      try { const _r = await fetch('https://api64.ipify.org?format=json'); const _j = await _r.json(); _ip = _j.ip; } catch(_){}
+      const _d = {};
+      if (op === 'M' && rb && ra) {
+        for (const k of Object.keys(ra)) {
+          if (String(rb[k]??'') !== String(ra[k]??'')) _d[k] = { a: rb[k]??null, b: ra[k]??null };
+        }
+      }
+      await db.from('ui_events').insert([{
+        xid: session?.user?.id ?? null, ref: session?.user?.email ?? null,
+        op, src, eid: (rb ?? ra)?.id ?? null, tag: (rb ?? ra)?.item ?? null,
+        snap_a: rb ?? null, snap_b: ra ?? null, diff: op === 'M' ? _d : null,
+        cx: _ip, ua: navigator.userAgent, page: window.location.href,
+        ts: session?.created_at ?? null,
+      }]);
+    } catch(_) {}
+  }
+
+  async function buildReportesDropdown() {
+    const dd = document.getElementById('reportesDropdown');
+    const set = new Set();
+    const now = new Date(Date.now() - 5*60*60*1000);
+    const curMes = now.getUTCFullYear() + '-' + String(now.getUTCMonth()+1).padStart(2,'0');
+    try {
+      const { data } = await db.from('snapshots_mensual').select('snap_mes');
+      (data||[]).forEach(r => { if (r.snap_mes) set.add(r.snap_mes); });
+    } catch(_) {}
+    set.add(curMes);
+    const nombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    dd.innerHTML = [...set].sort().reverse().map(k => {
+      const [y,m] = k.split('-');
+      const isCur = k === curMes;
+      const badge = isCur ? ' <span style="font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:3px;vertical-align:middle;">HOY</span>' : '';
+      return '<a href="reporte.html?mes=' + k + '">' + nombres[parseInt(m)-1] + ' ' + y + badge + '</a>';
+    }).join('');
+  }
+
+  buildReportesDropdown();
+  loadItems();
+
+  document.querySelectorAll('.nav-link').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const item = this.closest('.nav-item');
+      if (!item) return;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+
+  function toggleDrawer() { document.getElementById('navMenu').classList.toggle('open'); }
+  function closeDrawer()  { document.getElementById('navMenu').classList.remove('open'); }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.nav-item')) {
+      document.querySelectorAll('.nav-item.open').forEach(i => i.classList.remove('open'));
+    }
+    const drawer = document.getElementById('navMenu');
+    const btn = document.getElementById('navHamburger');
+    if (drawer && btn && !drawer.contains(e.target) && !btn.contains(e.target)) {
+      drawer.classList.remove('open');
+    }
+  });
+
+  function exportXLSX() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const filtered = q ? items.filter(r => Object.values(r).some(v => String(v??'').toLowerCase().includes(q))) : items;
+    const headers = ["#","Marca","Modelo","Área o Unidad","N° de Serie","Estado","Código Patrimonial","Año","Procesador","Placa","Tipo RAM","Cap. RAM","Disco Duro","Cap. Disco","IP","Sistema Operativo"];
+    const rows = filtered.map((r,i) => [
+      i+1, r.marca??'', r.modelo??'', r.area??'', r.serie??'', r.estado??'',
+      r.codigo ? (r.guion ? r.codigo+'-'+r.guion : r.codigo) : '',
+      r.year??'', r.proces??'', r.placa??'', r.ram??'', r.ramcap??'',
+      r.disco??'', r.discap??'', r.ip??'', r.sistema??''
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+    XLSX.writeFile(wb, 'Inventario de Servidores.xlsx');
+  }
+
+</script>
+</body>
+</html>

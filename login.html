@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>S.I.H.R.P. — Iniciar Sesión</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="login-page">
+
+  <div class="login-card">
+    <img src="images/logo_circle.png" class="login-logo" alt="HRP Logo"/>
+    <h1 class="login-title">S.I.H.R.P.</h1>
+    <p class="login-subtitle">Sistema de Inventario · Hospital Regional de Pucallpa</p>
+
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="email" id="loginEmail" placeholder="correo@hrp.gob.pe" autocomplete="username"/>
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+
+<script>
+  const SUPABASE_URL = 'https://vngfvmrnwzmigglwrshq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuZ2Z2bXJud3ptaWdnbHdyc2hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNDE0OTgsImV4cCI6MjA4NjgxNzQ5OH0.BwgvJxqHdiJB6N2DzmIm4wBDCyRnI9hsG0XdNQL0xI0';
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // If already logged in, redirect
+  db.auth.getSession().then(({ data }) => {
+    if (data.session) window.location.href = 'index.html';
+  });
+
+  // Allow Enter key
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  async function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass  = document.getElementById('loginPass').value;
+    const btn   = document.getElementById('loginBtn');
+    const err   = document.getElementById('loginError');
+
+    err.textContent = '';
+    if (!email || !pass) { err.textContent = 'Ingresa tu usuario y contraseña.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Ingresando…';
+
+    const { error } = await db.auth.signInWithPassword({ email, password: pass });
+
+    if (error) {
+      err.textContent = 'Usuario o contraseña incorrectos.';
+      btn.disabled = false;
+      btn.textContent = 'Ingresar';
+    } else {
+      window.location.href = 'index.html';
+    }
+  }
+</script>
+</body>
+</html>
